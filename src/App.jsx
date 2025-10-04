@@ -79,6 +79,7 @@ import { useRef, useEffect, useState } from "react";
 import io from "socket.io-client";
 
 const socket = io("https://videocallappbackend-f87x.onrender.com");
+// const socket = io("http://localhost:5000");
 
 export default function App() {
   const localVideoRef = useRef();
@@ -87,7 +88,17 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [username, setusername] = useState("")
   const [reciver, setreciver] = useState("")
+  const [Disabled, setDisabled] = useState(false)
+  const [Lst, setList] = useState({})
+  const [LstLength, setListLength] = useState({})
+
   const pendingCandidates = useRef([]);
+
+
+  // useEffect(() => {
+  //   setList(Lst)
+  // }, [reciver])
+
 
   useEffect(() => {
     socket.on("offer", async ({ sdp, from }) => {
@@ -98,14 +109,14 @@ export default function App() {
       // if (pcRef.signalingState === 'have-remote-offer') {
 
 
-        const answer = await pcRef.current.createAnswer();
-        await pcRef.current.setLocalDescription(answer);
-        pendingCandidates.current.forEach(c =>
-          pcRef.current.addIceCandidate(c)
-        );
-        pendingCandidates.current = [];
-        console.log('reciver=reciver', reciver)
-        socket.emit("answer", { sdp: answer, Target: from, sender: username });
+      const answer = await pcRef.current.createAnswer();
+      await pcRef.current.setLocalDescription(answer);
+      pendingCandidates.current.forEach(c =>
+        pcRef.current.addIceCandidate(c)
+      );
+      pendingCandidates.current = [];
+      console.log('reciver=reciver', reciver)
+      socket.emit("answer", { sdp: answer, Target: from, sender: username });
       // }
     });
 
@@ -129,6 +140,22 @@ export default function App() {
       }
     });
   }, []);
+  socket.on("user-registered", (msg) => {
+    console.log('user registered ', msg?.lst)
+    // setList(msg?.lst)
+    if (msg.lstlength) {
+      setListLength(msg.lstlength)
+    }
+    if (msg.lst) {
+      setList(msg.lst)
+    }
+    if (msg?.msg == true&& msg.ID==socket.id) {
+
+
+      setDisabled(true)
+    }
+
+  })
 
   const createPeerConnection = (reciver) => {
     const pc = new RTCPeerConnection();
@@ -163,114 +190,141 @@ export default function App() {
   };
 
   return (
-   <div
-  style={{
-    padding: 20,
-    maxWidth: 600,
-    margin: "0 auto",
-    fontFamily: "Arial, sans-serif",
-  }}
->
-  {!started ? (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 15,
+        padding: 20,
+        maxWidth: 600,
+        margin: "0 auto",
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      <input
-        placeholder="Enter Username"
-        value={username}
-        onChange={(event) => setusername(event.target.value)}
-        style={{
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 8,
-          border: "1px solid #ccc",
-        }}
-      />
-      <button
-        onClick={() => RegisterUser(username)}
-        style={{
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 8,
-          backgroundColor: "#4CAF50",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Register User
-      </button>
+      {!started ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 15,
+          }}
+        >
 
-      <input
-        placeholder="Enter Receiver"
-        value={reciver}
-        onChange={(event) => setreciver(event.target.value)}
-        style={{
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 8,
-          border: "1px solid #ccc",
-        }}
-      />
-      <button
-        onClick={() => startCall(reciver)}
-        style={{
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 8,
-          backgroundColor: "#2196F3",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Start 1-to-2 Call
-      </button>
-    </div>
-  ) : (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        gap: 20,
-        flexWrap: "wrap",
-        justifyContent: "center",
-      }}
-    >
-      <div style={{ flex: "1 1 300px", textAlign: "center" }}>
-        <h3>Local</h3>
-        <video
-          ref={localVideoRef}
-          autoPlay
-          muted
-          style={{
-            width: "100%",
-            maxWidth: 300,
+{LstLength>0&&<ul>
+  <li><h4>Online Users</h4></li>
+  {Object.keys(Lst).map((key) => (
+    <li key={key}>{key==username?"You":key}</li>
+  ))}
+</ul>}
+
+          {Disabled && <span style={{
+            padding: 10,
+            fontSize: 16,
             borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-          }}
-        />
-      </div>
-      <div style={{ flex: "1 1 300px", textAlign: "center" }}>
-        <h3>Remote</h3>
-        <video
-          ref={remoteVideoRef}
-          autoPlay
+            border: "1px solid green",
+          }}>User Register as username {username}</span>}
+          <input
+            placeholder="Enter Username"
+            value={username}
+            onChange={(event) => setusername(event.target.value.trim().toLocaleLowerCase())}
+            style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 8,
+              border: "1px solid #ccc",
+            }}
+          />
+          <button
+            onClick={() => RegisterUser(username)}
+            style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 8,
+              backgroundColor: Disabled ? "gray" : "#4CAF50",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+            }}
+            disabled={Disabled}
+          >
+            Register User
+          </button>
+
+          <input
+            placeholder="Enter Receiver"
+            value={reciver}
+            onChange={(event) => setreciver(event.target.value.trim().toLocaleLowerCase())}
+            style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 8,
+              border: "1px solid #ccc",
+            }}
+          />
+          <button
+            onClick={() => startCall(reciver)}
+            style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 8,
+              backgroundColor: LstLength == 2 && reciver.length !== 0 ? "#2196F3" : 'gray',
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+            }}
+            disabled={LstLength !== 2 && reciver.length !== 0}
+          >
+            Start 1-to-2 Call
+          </button>
+        </div>
+      ) : (
+        <div
           style={{
-            width: "100%",
-            maxWidth: 300,
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            display: "flex",
+            flexDirection: "row",
+            gap: 20,
+            flexWrap: "wrap",
+            justifyContent: "center",
           }}
-        />
-      </div>
+        >
+          <div style={{ flex: "1 1 300px", textAlign: "center" }}>
+            <h3>You</h3>
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              style={{
+                width: "100%",
+                maxWidth: 300,
+                borderRadius: 8,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              }}
+            />
+          </div>
+          <div style={{ flex: "1 1 300px", textAlign: "center" }}>
+            <h3>{reciver}</h3>
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              style={{
+                width: "100%",
+                maxWidth: 300,
+                borderRadius: 8,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              }}
+            />
+          </div>
+           <div style={{ flex: "1 1 300px", textAlign: "center" }}>
+            <button  style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 8,
+              backgroundColor: LstLength == 2 && reciver.length !== 0 ? "red" : 'gray',
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+            }} onClick={()=>{remoteVideoRef.current.srcObject=null;localVideoRef.current.srcObject=null;socket.disconnect(),setStarted(false)}}>End Call</button>
+          </div>
+        </div>
+      )}
     </div>
-  )}
-</div>
 
   );
 }
